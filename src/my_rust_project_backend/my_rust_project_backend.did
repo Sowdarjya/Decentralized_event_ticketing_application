@@ -1,3 +1,17 @@
+type User = record {
+  id: principal;
+  name: text;
+  email: text;
+  tickets_purchased: nat64;
+  created_at: nat64;
+};
+
+type CreateUserResult = variant {
+  Ok: User;
+  Err: text;
+};
+
 service : {
-    "greet": (text) -> (text) query;
+  greet: (text) -> (text) query;
+  create_user: (text, text) -> (CreateUserResult);
 }
