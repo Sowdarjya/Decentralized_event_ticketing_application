@@ -13,6 +13,7 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub tickets_purchased: u64,
+    pub is_organizer: bool,
     pub created_at: u64,
 }
 
@@ -53,9 +54,13 @@ fn greet(name: String) -> String {
 }
 
 #[ic_cdk::update]
-fn create_user(name: String, email: String) -> Result<User, String> {
+fn create_user(name: String, email: String, is_organizer: bool) -> Result<User, String> {
     let caller = ic_cdk::caller();
     let now = time();
+
+    if name.is_empty() || email.is_empty() {
+        return Err("Name and email cannot be empty".to_string());
+    }
 
     if USERS.with(|users| {
         users.borrow().contains_key(&caller)
@@ -76,6 +81,7 @@ fn create_user(name: String, email: String) -> Result<User, String> {
         name,
         email,
         tickets_purchased: 0,
+        is_organizer,
         created_at: now,
     };
 
