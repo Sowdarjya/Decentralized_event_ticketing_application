@@ -17,9 +17,25 @@ pub struct User {
     pub created_at: u64,
 }
 
+#[derive(Clone, Debug, CandidType, Deserialize, Serialize)]
+pub struct Event {
+    pub id: u64,
+    pub name: String,
+    pub description: String,
+    pub location: String,
+    pub date: u64,
+    pub organizer: Principal,
+    pub total_tickets: u64,
+    pub tickets_available: u64,
+    pub ticket_price: u64,
+    pub is_active: bool,
+    pub created_at: u64,
+}
+
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 const USERS_MEMORY_ID: MemoryId = MemoryId::new(0);
+const EVENTS_MEMORY_ID: MemoryId = MemoryId::new(1);
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = 
@@ -28,6 +44,12 @@ thread_local! {
     static USERS: RefCell<StableBTreeMap<Principal, User, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(USERS_MEMORY_ID))
+        )
+    );
+
+    static EVENTS: RefCell<StableBTreeMap<u64, Event, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(EVENTS_MEMORY_ID))
         )
     );
 }
@@ -46,6 +68,23 @@ impl Storable for User {
     }
 
     const BOUND: ic_stable_structures::storable::Bound = ic_stable_structures::storable::Bound::Unbounded;
+}
+
+impl Storable for Event {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    fn into_bytes(self) -> Vec<u8> {
+        candid::encode_one(self).unwrap()
+    }
+
+    const BOUND: ic_stable_structures::storable::Bound = ic_stable_structures::storable::Bound::Unbounded;
+    
 }
 
 #[ic_cdk::query]
@@ -92,5 +131,53 @@ fn create_user(name: String, email: String, is_organizer: bool) -> Result<User, 
     Ok(user)
 }
 
-// Export candid
-ic_cdk::export_candid!();
+#[ic_cdk::update]
+fn create_event(name: String, description: String, location: String, date: u64, total_tickets: u64, ticket_price: u64) -> Result<Event, String> {
+    let caller = ic_cdk::caller();
+    let now = time();
+
+    if name.is_empty() || description.is_empty() || location.is_empty() || total_tickets == 0 || ticket_price == 0 {
+        return Err("All fields must be filled and total tickets and ticket price must be greater than zero".to_string());
+    }
+
+    let check_user_exists = USERS.with(|users| {
+        users.borrow().contains_key(&caller)
+    });
+
+    if !check_user_exists {
+        return Err("User does not exist".to_string());
+    }
+
+    let check_is_user_organizer = USERS.with(|users| {
+        users.borrow().get(&caller).map_or(false, |user| user.is_organizer)
+    });
+
+    if !check_is_user_organizer {
+        return Err("Only organizers can create events".to_string());
+        
+    }
+
+    let event_id = EVENTS.with(|events| {
+        events.borrow().len() as u64 + 1
+    });
+
+    let event = Event {
+        id: event_id,
+        name,
+        description,
+        location,
+        date,
+        organizer: caller,
+        total_tickets,
+        tickets_available: total_tickets,
+        ticket_price,
+        is_active: true,
+        created_at: now,
+    };
+
+    EVENTS.with(|events| {
+        events.borrow_mut().insert(event_id, event.clone());
+    });
+
+    Ok(event)
+}
