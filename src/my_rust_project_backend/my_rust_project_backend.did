@@ -1,18 +1,38 @@
 type User = record {
-  id: principal;
-  name: text;
-  email: text;
-  tickets_purchased: nat64;
-  is_organizer: bool;
-  created_at: nat64;
+    id: principal;
+    name: text;
+    email: text;
+    tickets_purchased: nat64;
+    is_organizer: bool;
+    created_at: nat64;
+};
+
+type Event = record {
+    id: nat64;
+    name: text;
+    description: text;
+    location: text;
+    date: nat64;
+    organizer: principal;
+    total_tickets: nat64;
+    tickets_available: nat64;
+    ticket_price: nat64;
+    is_active: bool;
+    created_at: nat64;
 };
 
 type CreateUserResult = variant {
-  Ok: User;
-  Err: text;
+    Ok: User;
+    Err: text;
+};
+
+type CreateEventResult = variant {
+    Ok: Event;
+    Err: text;
 };
 
 service : {
-  greet: (text) -> (text) query;
-  create_user: (text, text, bool) -> (CreateUserResult);
+    greet: (text) -> (text) query;
+    create_user: (text, text, bool) -> (CreateUserResult);
+    create_event: (text, text, text, nat64, nat64, nat64) -> (CreateEventResult);
 }
