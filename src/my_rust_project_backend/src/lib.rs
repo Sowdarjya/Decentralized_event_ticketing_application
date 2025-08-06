@@ -1,8 +1,7 @@
 use candid::{CandidType, Deserialize, Principal};
 use ic_cdk::api::time;
-use ic_cdk_macros::{query, update};
 use ic_stable_structures::memory_manager::{MemoryManager, MemoryId, VirtualMemory};
-use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable, StableCell};
 use serde::Serialize;
 use std::cell::RefCell;
 use std::borrow::Cow;
@@ -36,6 +35,7 @@ type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 const USERS_MEMORY_ID: MemoryId = MemoryId::new(0);
 const EVENTS_MEMORY_ID: MemoryId = MemoryId::new(1);
+const EVENT_COUNTER_MEMORY_ID: MemoryId = MemoryId::new(2);
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = 
@@ -50,6 +50,13 @@ thread_local! {
     static EVENTS: RefCell<StableBTreeMap<u64, Event, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(EVENTS_MEMORY_ID))
+        )
+    );
+
+    static EVENT_COUNTER: RefCell<StableCell<u64, Memory>> = RefCell::new(
+        StableCell::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(EVENT_COUNTER_MEMORY_ID)),
+            0
         )
     );
 }
@@ -84,7 +91,6 @@ impl Storable for Event {
     }
 
     const BOUND: ic_stable_structures::storable::Bound = ic_stable_structures::storable::Bound::Unbounded;
-    
 }
 
 #[ic_cdk::query]
@@ -108,8 +114,8 @@ fn create_user(name: String, email: String, is_organizer: bool) -> Result<User, 
     }
 
     let email_taken = USERS.with(|users| {
-        users.borrow().iter().any(|entry| entry.value().email == email)
-    });
+    users.borrow().values().any(|user| user.email == email)
+});
 
     if email_taken {
         return Err("Email already taken".to_string());
@@ -154,11 +160,12 @@ fn create_event(name: String, description: String, location: String, date: u64, 
 
     if !check_is_user_organizer {
         return Err("Only organizers can create events".to_string());
-        
     }
 
-    let event_id = EVENTS.with(|events| {
-        events.borrow().len() as u64 + 1
+    let event_id = EVENT_COUNTER.with(|counter| {
+        let current = counter.borrow().get() + 1;
+        counter.borrow_mut().set(current);
+        current
     });
 
     let event = Event {
@@ -184,10 +191,37 @@ fn create_event(name: String, description: String, location: String, date: u64, 
 
 #[ic_cdk::query]
 fn get_events() -> Vec<Event> {
-    let events: Vec<Event> = EVENTS.with(|events| {
-        events.borrow().iter().map(|entry| entry.value().clone()).collect()
-    });
+    EVENTS.with(|events| {
+        events
+            .borrow()
+            .iter()
+            .map(|entry| entry.value())
+            .filter(|event| event.is_active)
+            .collect()
+    })
+}
 
-    events.into_iter().filter(|event| event.is_active).collect()
+#[ic_cdk::query]
+fn get_users() -> Vec<User> {
+    USERS.with(|users| {
+        users
+            .borrow()
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
+    })
+}
 
+#[ic_cdk::query]
+fn get_user(user_id: Principal) -> Option<User> {
+    USERS.with(|users| {
+        users.borrow().get(&user_id)
+    })
+}
+
+#[ic_cdk::query]
+fn get_event(event_id: u64) -> Option<Event> {
+    EVENTS.with(|events| {
+        events.borrow().get(&event_id)
+    })
 }

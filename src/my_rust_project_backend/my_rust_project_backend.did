@@ -36,4 +36,7 @@ service : {
     create_user: (text, text, bool) -> (CreateUserResult);
     create_event: (text, text, text, nat64, nat64, nat64) -> (CreateEventResult);
     get_events: () -> (vec Event) query;
+    get_users: () -> (vec User) query;
+    get_user: (principal) -> (opt User) query;
+    get_event: (nat64) -> (opt Event) query;
 }
