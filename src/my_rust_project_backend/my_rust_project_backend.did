@@ -35,4 +35,5 @@ service : {
     greet: (text) -> (text) query;
     create_user: (text, text, bool) -> (CreateUserResult);
     create_event: (text, text, text, nat64, nat64, nat64) -> (CreateEventResult);
+    get_events: () -> (vec Event) query;
 }

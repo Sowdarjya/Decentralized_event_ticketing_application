@@ -181,3 +181,13 @@ fn create_event(name: String, description: String, location: String, date: u64, 
 
     Ok(event)
 }
+
+#[ic_cdk::query]
+fn get_events() -> Vec<Event> {
+    let events: Vec<Event> = EVENTS.with(|events| {
+        events.borrow().iter().map(|entry| entry.value().clone()).collect()
+    });
+
+    events.into_iter().filter(|event| event.is_active).collect()
+
+}
