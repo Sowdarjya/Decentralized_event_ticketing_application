@@ -1,3 +1,85 @@
+type Event = record {
+  id : nat64;
+  name : text;
+  description : text;
+  venue : text;
+  date : nat64;
+  total_tickets : nat32;
+  available_tickets : nat32;
+  price_icp : nat64;
+  organizer : principal;
+  max_tickets_per_user : nat32;
+  sale_start_time : nat64;
+  sale_end_time : nat64;
+  is_active : bool;
+};
+
+type Ticket = record {
+  id : nat64;
+  event_id : nat64;
+  owner : principal;
+  seat_number : text;
+  purchase_time : nat64;
+  is_used : bool;
+  verification_code : text;
+};
+
+type Purchase = record {
+  id : nat64;
+  event_id : nat64;
+  buyer : principal;
+  quantity : nat32;
+  total_amount : nat64;
+  purchase_time : nat64;
+  ticket_ids : vec nat64;
+};
+
+type UserProfile = record {
+  user_principal : principal;
+  purchases : vec nat64;
+  tickets : vec nat64;
+  reputation_score : nat32;
+  is_verified : bool;
+};
+
+type TicketingError = variant {
+  EventNotFound;
+  InsufficientTickets;
+  ExceedsMaxTicketsPerUser;
+  SaleNotStarted;
+  SaleEnded;
+  EventInactive;
+  Unauthorized;
+  TicketNotFound;
+  AlreadyUsed;
+  InvalidVerificationCode;
+};
+
+type Result_Event = variant { Ok : Event; Err : TicketingError };
+type Result_Purchase = variant { Ok : Purchase; Err : TicketingError };
+type Result_Ticket = variant { Ok : Ticket; Err : TicketingError };
+type Result_Unit = variant { Ok; Err : TicketingError };
+type Result_Stats = variant { Ok : record { nat32; nat32; nat64 }; Err : TicketingError };
+type Result_EventId = variant { Ok : nat64; Err : TicketingError };
+
 service : {
-    "greet": (text) -> (text) query;
+  // Event management
+  create_event : (text, text, text, nat64, nat32, nat64, nat32, nat64, nat64) -> (Result_EventId);
+  get_event : (nat64) -> (Result_Event) query;
+  get_all_events : () -> (vec Event) query;
+  get_active_events : () -> (vec Event) query;
+  deactivate_event : (nat64) -> (Result_Unit);
+  get_event_statistics : (nat64) -> (Result_Stats) query;
+
+  // Ticket purchasing
+  purchase_tickets : (nat64, nat32) -> (Result_Purchase);
+  
+  // User queries
+  get_user_tickets : (principal) -> (vec Ticket) query;
+  get_user_purchases : (principal) -> (vec Purchase) query;
+  get_user_profile : (principal) -> (UserProfile) query;
+  
+  // Ticket verification
+  verify_ticket : (nat64, text) -> (Result_Ticket) query;
+  use_ticket : (nat64, text) -> (Result_Unit);
 }

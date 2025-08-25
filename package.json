@@ -14,5 +14,13 @@
   "type": "module",
   "workspaces": [
     "src/my_rust_project_frontend"
-  ]
+  ],
+  "dependencies": {
+    "@dfinity/agent": "^2.4.1",
+    "@dfinity/auth-client": "^2.4.1",
+    "@dfinity/candid": "^2.4.1",
+    "@dfinity/identity": "^2.4.1",
+    "@dfinity/principal": "^2.4.1",
+    "lucide-react": "^0.541.0"
+  }
 }
